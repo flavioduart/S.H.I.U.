@@ -1,57 +1,60 @@
 #include <EEPROM.h>
 #include <LiquidCrystal.h>
+
 #define LIMITE         6          // Define o limite de erro do sinal do potenciometro
 #define DEBUG          1          // Ativar(1) ou desativar(0) a comunicação com o serial.
 #define ZERAR          1          // (1) zero o EEPROM (0) mantem o EEPROM com leituras anteriores
 #define DELAY          500        // Define o tempo para o delay de debug em milissegundos
-#define NUM_SENSORES   1          // Numero de sensores usados
+#define NUM_SENSORES    1         // Numero de sensores usados
 #define NUM_INTERACOES 700        // Numero de interções no filtro
+#define NUM_BOTOES      3
 #define OVERFLOW       4000000000 // Over flow para o unsigned long
-#define OCIO           5          // Tempo minimo entre uma ativação e outra
+#define OCIO           5          // Tempo minimo entre uma ativação e outra 
 #define LUZ            6          // Sinalizador luminoso ligado à porta digital do arduino 
 #define SOM            7          // Sirene ligada à porta digital do arduino
 #define COOLER         10         // Define a porta do cooler
-#define TEMPO_COOLER   3          // Tempo que o cooler permanecerá ligado 
+#define TEMPO_COOLER   3          // Tempo que o cooler permanecerá ligado
 #define NIVEL_AVISO    180        // Determina nível de ruído/pulsos para ativar o sinalizador luminoso.
 #define NIVEL_LIMITE   180        // Determina nível de ruído/pulsos para ativar a sirene.
-#define TEMPO_LUZ      3          // Define o tempo de duração em que o sinalizador permanecerá ativo.
-#define TEMPO_SOM      3          // Define o tempo de duração em que a sirene permanecerá ativo.
-#define REP_SOM        2          // Quantidade de vezes que a sirene irá disparar 
-#define REP_LUZ        2          // Quantidade de vezes que o sinalizador luminoso irá disparar
+#define TEMPO_LUZ      3          // Define o tempo de duração em que o sinalizador permanecerá ativo. 
+#define TEMPO_SOM      3          // Define o tempo de duração em que a sirene permanecerá ativo. 
+#define REP_SOM        2          // Quantidade de vezes que a sirene irá disparar  
+#define REP_LUZ        2          // Quantidade de vezes que o sinalizador luminoso irá disparar 
 #define ON             1
 #define OFF            0
 #define TOLERANCIA     1          // EM SEGUNDOS PELO AMOR DE DEUS!
-
 #define slot_Acionamentos 0
+
 int slot_limite1 = 1;
 int slot_limite2 = 2;
 int slot_limite3 = 3;
 int slot_limite4 = 4;
 
 int           valor = 0;
-int           sensores[NUM_SENSORES] = {A2/*, A3, A5, A6*/}; // Sensores ligados às portas analógicas
-int           verificadores[NUM_SENSORES] = {A0/*, A4, A1, A0*/};  // Resposansaveis por gravar saida do potenciometro
-int           limite_POT[NUM_SENSORES] = {EEPROM.get(slot_limite1, valor)/*, 554, 554, 554*/};  // Variável responsável por definir o limiar do potenciometro medido analogicamente em relação à sensibilidade do sensor
+int           sensores[NUM_SENSORES] = {A0/*, A1, A2, A3*/}; // Sensores ligados às portas analógicas
+int           verificadores[NUM_SENSORES] = {A7/*, A6,A5, A4*/};  // Resposansaveis por gravar saida do potenciometro
+int           limite_POT[NUM_SENSORES] = {EEPROM.get(slot_limite1, valor)/*, EEPROM.get(slot_limite2, valor), EEPROM.get(slot_limite3, valor),EEPROM.get(slot_limite4, valor)*/};  // Variável responsável por definir o limiar do potenciometro medido analogicamente em relação à sensibilidade do sensor
 bool          flag_calibracao[NUM_SENSORES];
 int           nivel                  = 0;    // Variável responsável pelo nível de ruído
 int           endereco               = 0;    // Endereço de memória que vai armazenar quantidade de vezes que a sirene acionou
-int           Q_Acionamento          = 0;    // Variável responsável por armazenar quantidade de vezes que a sirene acionou
+int           Q_Acionamento          = 0;    // Variável responsável pornivel armazenar quantidade de vezes que a sirene acionou
 unsigned long t0                     = 0;    // Variável responsável pelo tempo inicial
 unsigned long tc                     = 0;    // Variável responsável pelo tempo calculado
 int           deveAlertar            = 1;    // Variável atua como um binário (true/false)
-int botoes[] = {8, 9, 6, 7};
+int botoes[] = {8, 6, 7, 9};
 bool estadoBotao;
 bool estadoBotao2;
+bool estadoBotao3;
 void(* reset) (void) = 0;
 bool verificador;
 ///LiquidCrystal lcd(<pino RS>, <pino enable>, <pino D4>, <pino D5>, <pino D6>, <pino D7>)
-LiquidCrystal lcd(12, 11, 5, 4, 3, 2); //
+LiquidCrystal lcd(5, 4, 3, 2, 1, 0); // tem que ver as portas
 
 //Função que define os componentes sinalizador,sirene e sensores como entrada ou saída
 
 void setup()
 {
-  Serial.begin(9600);
+  //Serial.begin(9600);
   pinMode(LUZ,  OUTPUT); //@param[OUT]
   pinMode(SOM, OUTPUT); //@param[OUT]
 
@@ -67,15 +70,54 @@ void setup()
   /*for(int i = 0; i < NUM_SENSORES; i++)
     flag_calibracao[i] = false;*/
   lcd.begin(16, 2);
-  for (int i = 0; i < 4; i++)
+  for (int i = 0; i < NUM_BOTOES; i++)
     pinMode(botoes[i], INPUT);
 }
 
 void loop()
 {
+  lcd.clear();
+  iniciar();
   menu();
+}
+
+void iniciar()
+{
+  int nivel1,nivel2, nivel3, nivel4;
+  lcd.clear();
+  do
+  {
+  
+  estadoBotao = digitalRead(botoes[1]);
+  nivel1 = analogRead(sensores[0]);
+  nivel2 = analogRead(sensores[1]);
+  nivel3 = analogRead(sensores[2]);
+  nivel4 = analogRead(sensores[3]);
+  
+  lcd.setCursor(0, 0);
+  lcd.print(nivel1);
+  lcd.setCursor(3, 0);
+  lcd.print("|");
+  
+  lcd.setCursor(4, 0);
+  lcd.print(nivel2);
+  lcd.setCursor(7, 0);
+  lcd.print("|");
+  
+  lcd.setCursor(8, 0);
+  lcd.print(nivel3);
+  lcd.setCursor(11, 0);
+  lcd.print("|");
+
+  lcd.setCursor(12, 0); 
+  lcd.print(nivel4);
+
+      
+  lcd.setCursor(0, 1);
+  lcd.print("2- Menu");
+      
   nivel = ouvirNivel();
-  if (nivel < NIVEL_AVISO)
+  if (nivel < NIVEL_AVISO) //Sensor Termopar Tipo K ivel
   {
     if (t0 < OVERFLOW)
     {
@@ -84,14 +126,14 @@ void loop()
     else
       reset();
   }
-
   deveAlertar = ((millis() / 1000) - t0) > TOLERANCIA; // Se a condicao for aceita deveAlertar = 1(true) se a condicao for falsa deveAlertar = 0(false)
 
   if (deveAlertar && (nivel > NIVEL_AVISO && nivel < NIVEL_LIMITE)) //se deveAlertar for verdadeiro e nivel < NIVEL_LIMITE aviso luminoso
   {
     luz();
     if (DEBUG)
-      Serial.println("Em Ocio");
+      //Serial.println("Em Ocio"*/);
+      lcd.print("oi");
     else
       delay(OCIO * 1000);
   }
@@ -100,7 +142,8 @@ void loop()
     luz();
     som();
     if (DEBUG)
-      Serial.println("Em Ocio");
+      //Serial.println("Em Ocio");
+      lcd.print("oi");
     else
       delay(OCIO * 1000);
     Q_Acionamento++;
@@ -108,14 +151,15 @@ void loop()
   }
   if (DEBUG)
   {
-    Serial.print("Numero de vezes que acionou: ");
-    Serial.println(EEPROM.read(slot_Acionamentos));
+    //Serial.print("Numero de vezes que acionou: ");
+    //Serial.println(EEPROM.read(slot_Acionamentos));
     delay(DELAY);
   }
-}
+  }while(estadoBotao != HIGH);
 
-void menu()
-{
+  return;
+}
+void menu(){
   unsigned long tempo;
 
   lcd.clear();
@@ -124,23 +168,18 @@ void menu()
   lcd.setCursor(0, 0);
   lcd.print("S.H.I.U.");
   delay(3000);
-  lcd.clear();
+   lcd.clear(); 
+  do{
+  estadoBotao = digitalRead(botoes[0]);
+  estadoBotao2 = digitalRead(botoes[1]);
+  estadoBotao3 = digitalRead(botoes[2]);
+  
   lcd.setCursor(0, 0);
-  lcd.print("Qur mudar limiar");
-  lcd.setCursor(0, 1);
-  lcd.print("ou sensibildade?");
-  delay(4000);
-  lcd.clear();
-  lcd.setCursor(0, 0);
-  lcd.print("1- Limiar");
+  lcd.print("1-Limiar 3-Sair");
   lcd.setCursor(0, 1);
   lcd.print("2- Sensibilidade");
-  delay(1000);
-  tempo = millis();
-  do {
-    estadoBotao = digitalRead(botoes[0]);
-    estadoBotao2 = digitalRead(botoes[1]);
-    if (estadoBotao == HIGH) {
+  
+  if (estadoBotao == HIGH) {
       lcd.clear();
       lcd.setCursor(0, 0);
       lcd.print("Limiar");
@@ -155,9 +194,15 @@ void menu()
       delay(2000);
       ajusteSensibilidade();
     }
-  } while (estadoBotao != HIGH || estadoBotao2 != HIGH);
-}
-
+    else if (estadoBotao3 == HIGH){
+      lcd.clear();
+      lcd.print("Iniciando Shiu..");
+      delay(1000);
+      return;
+    }
+  }while(estadoBotao != HIGH || estadoBotao2 != HIGH || estadoBotao3 != HIGH);
+} 
+  
 void alterarlimiares()
 {
   int botao=0;
@@ -176,6 +221,7 @@ void alterarlimiares()
   lcd.setCursor(0, 0);
   lcd.print("Para parar aperte");
   lcd.setCursor(0, 1);
+      
   lcd.print("o botao 1");
   delay(3000);
   lcd.clear();
@@ -204,11 +250,11 @@ void alterarlimiares()
       lcd.print("   ");
       lcd.setCursor(0, 1);
       lcd.print("Old value ");
-      lcd.print(limite_POT[0]);
+      lcd.print(EEPROM.get(slot_limite1, valor));
       botaoParar = digitalRead(botoes[0]);
     } while (botaoParar != HIGH);
     EEPROM.put(slot_limite1, alteradorDePotenciometro);
-    Serial.println(EEPROM.get(slot_limite1, valor));
+    //Serial.println(EEPROM.get(slot_limite1, valor));
   }
   if (botao == 1) {
     delay(500);
@@ -220,11 +266,11 @@ void alterarlimiares()
       lcd.print("   ");
       lcd.setCursor(0, 1);
       lcd.print("Old value ");
-      lcd.print(limite_POT[1]);
+      lcd.print(EEPROM.get(slot_limite2, valor));
       botaoParar = digitalRead(botoes[0]);
     } while (botaoParar != HIGH);
     EEPROM.put(slot_limite2, alteradorDePotenciometro);
-    Serial.println(EEPROM.get(slot_limite2, valor));
+    //Serial.println(EEPROM.get(slo487t_limite2, valor));
   }
   if (botao == 2) {
     delay(500);
@@ -236,11 +282,11 @@ void alterarlimiares()
       lcd.print("   ");
       lcd.setCursor(0, 1);
       lcd.print("Old value ");
-      lcd.print(limite_POT[2]);
+      lcd.print(EEPROM.get(slot_limite3, valor));
       botaoParar = digitalRead(botoes[0]);
     } while (botaoParar != HIGH);
     EEPROM.put(slot_limite3, alteradorDePotenciometro);
-    Serial.println(EEPROM.get(slot_limite3, valor));
+    //Serial.println(EEPROM.get(slot_limite3, valor));
   }
   if (botao == 3) {
     delay(500);
@@ -252,20 +298,19 @@ void alterarlimiares()
       lcd.print("   ");
       lcd.setCursor(0, 1);
       lcd.print("Old value ");
-      lcd.print(limite_POT[3]);
+      lcd.print(EEPROM.get(slot_limite4, valor));
       botaoParar = digitalRead(botoes[0]);
     } while (botaoParar != HIGH);
     EEPROM.put(slot_limite4, alteradorDePotenciometro);
-    Serial.println(EEPROM.get(slot_limite4, valor));
+    //Serial.println(EEPROM.get(slot_limite4, valor));
   }
-
+  delay(1000);
+  lcd.clear();
   do {
-    lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("1 - Limiar");
     lcd.setCursor(0, 2);
     lcd.print("2 - Sair");
-    delay(500);
     if (digitalRead(botoes[0]) == HIGH)
      alterarlimiares();
     else if (digitalRead(botoes[1]) == HIGH)
@@ -309,25 +354,27 @@ int read_sensor(int port)
 
 void imprime_valor(int x, int leitura)
 {
-  Serial.print("Sensor ");
-  Serial.print(x + 1);
-  Serial.print(": ");
-  Serial.println(leitura);
+  //Serial.print("Sensor ");
+  //Serial.print(x + 1);
+  //Serial.print(": ");
+  //Serial.println(leitura);
 }
 void luz()
 {
   for (int n = 0 ; n < REP_LUZ; n++)
   {
     if (DEBUG)
-      Serial.println("Disparado Luz");
+      //Serial.println("Disparado Luz");
+      lcd.print("oi");
     else
     {
       digitalWrite(LUZ, HIGH);
-      delay(TEMPO_LUZ * 1000);
+      delay(TEMPO_LUZ * 1000);limite_POT[botao]
       digitalWrite(LUZ, LOW);
     }
     if (DEBUG)
-      Serial.println("Desligando Luz");
+     // Serial.println("Desligando Luz");
+     lcd.print("oi");
   }
 }
 
@@ -336,7 +383,8 @@ void som()
   for (int n = 0; n < REP_SOM ; n++ )
   {
     if (DEBUG)
-      Serial.println("Disparado Som");
+      //Serial.println("Disparado Som");
+      lcd.print("oi");
     else
     {
       digitalWrite(SOM, HIGH);
@@ -344,17 +392,18 @@ void som()
       digitalWrite(SOM, LOW);
     }
     if (DEBUG)
-      Serial.println("Desligando Som");
+      //Serial.println("Desligando Som");
+      lcd.print("oi");
   }
 }
 
 void imprime_verificador(int y, int leitura)
 {
-  Serial.print("Verficador ");
-  Serial.print(y + 1);
-  Serial.print(" : ");
-  Serial.println(leitura);
-  Serial.println();
+  //Serial.print("Verficador ");
+  //Serial.print(y + 1);limite_POT[botao]
+  //Serial.print(" : ");
+ // Serial.println(leitura);
+  //Serial.println();
 }
 
 
@@ -377,7 +426,7 @@ void ajusteSensibilidade() {                     //A função recebe uma porta a
     value = leitura - limite_POT[i];
     if (value > LIMITE || value < -LIMITE) {
       flag_calibracao[i] = false;
-    } else {
+    } else {limite_POT[botao]
       flag_calibracao[i] = true;
     }
     if (flag_calibracao[i] == false)
@@ -395,7 +444,7 @@ void ajusteSensibilidade() {                     //A função recebe uma porta a
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print(str + sensor);
-    lcd.setCursor(0, 1);
+    lcd.setCursor(0, 1);limite_POT[botao]
     lcd.print("Descalibrados");
     delay(4000);
   }
@@ -428,12 +477,12 @@ void ajusteSensibilidade() {                     //A função recebe uma porta a
     delay(2000);
     while (!flag_calibracao[botao]) {       //Laço para calibrar todos os sensores listados;
       leitura = read_sensor(verificadores[botao]);
-      value = leitura - limite_POT[botao];         //Variavel de analise da precisão da calibração
+      value = leitura - EEPROM.get(slot_limite1, valor);         //Variavel de analise da precisão da calibração
       if (value > LIMITE || value < -LIMITE) {
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("limite: ");
-        lcd.print(limite_POT[botao]);
+        lcd.print(EEPROM.get(slot_limite1, valor));
         lcd.setCursor(0, 1);
         lcd.print("pot: ");
         lcd.print(value);
@@ -441,14 +490,16 @@ void ajusteSensibilidade() {                     //A função recebe uma porta a
         lcd.clear();
       lcd.setCursor(0, 0);
       lcd.print("limite: ");
-      lcd.print(limite_POT[botao]);
+      lcd.print(EEPROM.get(slot_limite1, valor));
       lcd.setCursor(0, 1);
       lcd.print("pot: ");
       lcd.print(value);
       lcd.print(" calibrado");
       estadoBotao = digitalRead(botoes[botao]);
       if (estadoBotao == HIGH)
-        flag_calibracao[botao] = true;
-    }
+      flag_calibracao[botao] = true;
+      
   }
+ delay(1000); 
+      }
 }
