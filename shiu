@@ -2,10 +2,10 @@
 #include <LiquidCrystal.h>
 
 #define LIMITE         6          // Define o limite de erro do sinal do potenciometro
-#define DEBUG          1          // Ativar(1) ou desativar(0) a comunicação com o serial.
+#define DEBUG          0          // Ativar(1) ou desativar(0) a comunicação com o serial.
 #define ZERAR          1          // (1) zero o EEPROM (0) mantem o EEPROM com leituras anteriores
 #define DELAY          500        // Define o tempo para o delay de debug em milissegundos
-#define NUM_SENSORES    1         // Numero de sensores usados
+#define NUM_SENSORES    1        // Numero de sensores usados
 #define NUM_INTERACOES 700        // Numero de interções no filtro
 #define NUM_BOTOES      3
 #define OVERFLOW       4000000000 // Over flow para o unsigned long
@@ -25,12 +25,12 @@
 #define TOLERANCIA     1          // EM SEGUNDOS PELO AMOR DE DEUS!
 #define slot_Acionamentos 0
 
-int slot_limite1 = 1;
+int slot_limite1 = 1;             // Valores referentes à posição do array do EEPROM onde ficam salvos os limites dos potenciometros
 int slot_limite2 = 2;
 int slot_limite3 = 3;
 int slot_limite4 = 4;
 
-int           valor = 0;
+int           valor = 0;          //Variável responsável por armazenar o resultado da diferença entre o valor do potenciometro e o limite
 int           sensores[NUM_SENSORES] = {A0/*, A1, A2, A3*/}; // Sensores ligados às portas analógicas
 int           verificadores[NUM_SENSORES] = {A7/*, A6,A5, A4*/};  // Resposansaveis por gravar saida do potenciometro
 int           limite_POT[NUM_SENSORES] = {EEPROM.get(slot_limite1, valor)/*, EEPROM.get(slot_limite2, valor), EEPROM.get(slot_limite3, valor),EEPROM.get(slot_limite4, valor)*/};  // Variável responsável por definir o limiar do potenciometro medido analogicamente em relação à sensibilidade do sensor
@@ -41,8 +41,8 @@ int           Q_Acionamento          = 0;    // Variável responsável pornivel 
 unsigned long t0                     = 0;    // Variável responsável pelo tempo inicial
 unsigned long tc                     = 0;    // Variável responsável pelo tempo calculado
 int           deveAlertar            = 1;    // Variável atua como um binário (true/false)
-int botoes[] = {8, 6, 7, 9};
-bool estadoBotao;
+int botoes[] = {8, 6, 7, 9};                  //Portas digitais do arduino usadas pros botoes
+bool estadoBotao;                             //Variáveis responsáveis por armazenar os estados dos botões para comparações logicas
 bool estadoBotao2;
 bool estadoBotao3;
 void(* reset) (void) = 0;
@@ -83,16 +83,18 @@ void loop()
 
 void iniciar()
 {
-  int nivel1,nivel2, nivel3, nivel4;
+  int nivel1,nivel2, nivel3, nivel4;                //Variáveis responsáveis por armazenas as leituras dos sensores
   lcd.clear();
   do
   {
   
-  estadoBotao = digitalRead(botoes[1]);
-  nivel1 = analogRead(sensores[0]);
+  estadoBotao = digitalRead(botoes[1]);             //Leitura do botão 2
+  nivel1 = analogRead(sensores[0]);                  //Leitura dos sensores
   nivel2 = analogRead(sensores[1]);
   nivel3 = analogRead(sensores[2]);
   nivel4 = analogRead(sensores[3]);
+   
+  //Imprimindo no LCD as leituras dos sensores + opção de menu
   
   lcd.setCursor(0, 0);
   lcd.print(nivel1);
@@ -115,7 +117,9 @@ void iniciar()
       
   lcd.setCursor(0, 1);
   lcd.print("2- Menu");
-      
+  
+  //Início da verificação de nível e acionamento sonoro
+  
   nivel = ouvirNivel();
   if (nivel < NIVEL_AVISO) //Sensor Termopar Tipo K ivel
   {
@@ -132,8 +136,8 @@ void iniciar()
   {
     luz();
     if (DEBUG)
-      //Serial.println("Em Ocio"*/);
-      lcd.print("oi");
+      //Serial.println("Em Ocio");
+      lcd.print(" ");
     else
       delay(OCIO * 1000);
   }
@@ -143,11 +147,11 @@ void iniciar()
     som();
     if (DEBUG)
       //Serial.println("Em Ocio");
-      lcd.print("oi");
+      lcd.print(" ");
     else
       delay(OCIO * 1000);
     Q_Acionamento++;
-    EEPROM.write(slot_Acionamentos, Q_Acionamento);
+    EEPROM.write(slot_Acionamentos, Q_Acionamento);             //Salvando a quantidade de acionamentos no EEPROM
   }
   if (DEBUG)
   {
@@ -159,13 +163,15 @@ void iniciar()
 
   return;
 }
+
+//Função responsável pelo Menu interativo, funções de alterar limiar e verificar a sensibilidade e calibração dos sensores
 void menu(){
   unsigned long tempo;
 
   lcd.clear();
   lcd.cursor();
   lcd.blink();
-  lcd.setCursor(0, 0);
+  lcd.setCursor(5, 0);
   lcd.print("S.H.I.U.");
   delay(3000);
    lcd.clear(); 
@@ -179,14 +185,14 @@ void menu(){
   lcd.setCursor(0, 1);
   lcd.print("2- Sensibilidade");
   
-  if (estadoBotao == HIGH) {
+  if (estadoBotao == HIGH) {         //Caso o botão 1 seja pressionado irá para a função alterarLimiares()
       lcd.clear();
       lcd.setCursor(0, 0);
       lcd.print("Limiar");
       delay(2000);
       alterarlimiares();
     }
-    else if (estadoBotao2 == HIGH)
+    else if (estadoBotao2 == HIGH)      //Caso o botão 2 seja pressionado irá para a função ajusteSensibilidade()
     {
       lcd.clear();
       lcd.setCursor(0, 0);
@@ -194,7 +200,7 @@ void menu(){
       delay(2000);
       ajusteSensibilidade();
     }
-    else if (estadoBotao3 == HIGH){
+    else if (estadoBotao3 == HIGH){         //Caso o botão 3 seja pressionado irá voltar para a tela inicial
       lcd.clear();
       lcd.print("Iniciando Shiu..");
       delay(1000);
@@ -202,14 +208,16 @@ void menu(){
     }
   }while(estadoBotao != HIGH || estadoBotao2 != HIGH || estadoBotao3 != HIGH);
 } 
-  
+
+//Função responsável por alterar os valores dos limiares (limites dos potenciometros)
+
 void alterarlimiares()
 {
-  int botao=0;
-  bool botaoParar;
-  int escolherBotao;
+  int botao=0;            //variável para guardar o numero do botao
+  bool botaoParar;        //variável usada como botao de parada
+  int escolherBotao;      
   int bin = 0;
-  unsigned int alteradorDePotenciometro = 0;
+  unsigned int alteradorDePotenciometro = 0;          //Variável responsável por armazenar o novo valor do limiar
   unsigned long tempo;
   lcd.clear();
   lcd.setCursor(0, 0);
@@ -222,7 +230,7 @@ void alterarlimiares()
   lcd.print("Para parar aperte");
   lcd.setCursor(0, 1);
       
-  lcd.print("o botao 1");
+  lcd.print("o botao 1");                   //Escolhendo o limiar que queremos alterar
   delay(3000);
   lcd.clear();
   lcd.setCursor(0, 0);
@@ -232,7 +240,7 @@ void alterarlimiares()
 
   do {
     for (int i = 0; i < NUM_SENSORES; i++) {
-      estadoBotao = digitalRead(botoes[i]);
+      estadoBotao = digitalRead(botoes[i]);               //Guardando o numero do botao que foi pressionado, para salvar o novo valor no local correspondente
       if (estadoBotao == HIGH) {
         botao = i;
         break;
@@ -243,9 +251,9 @@ void alterarlimiares()
   if (botao == 0) {
     delay(500);
     do {
-      alteradorDePotenciometro = map(analogRead(verificadores[0]), 0, 1023, 1023, 0);
+      alteradorDePotenciometro = map(analogRead(verificadores[0]), 0, 1023, 1023, 0);         //Fazendo a leitura do potenciometro
       lcd.setCursor(0, 0);
-      lcd.print("New value ");
+      lcd.print("New value ");          //Imprimindo na tela os valores, novo e antigo.
       lcd.print(alteradorDePotenciometro);
       lcd.print("   ");
       lcd.setCursor(0, 1);
@@ -253,7 +261,7 @@ void alterarlimiares()
       lcd.print(EEPROM.get(slot_limite1, valor));
       botaoParar = digitalRead(botoes[0]);
     } while (botaoParar != HIGH);
-    EEPROM.put(slot_limite1, alteradorDePotenciometro);
+    EEPROM.put(slot_limite1, alteradorDePotenciometro);       //Guardando no EEPROM o novo limiar
     //Serial.println(EEPROM.get(slot_limite1, valor));
   }
   if (botao == 1) {
@@ -306,7 +314,7 @@ void alterarlimiares()
   }
   delay(1000);
   lcd.clear();
-  do {
+  do {                              //Verificando qual opção será executada
     lcd.setCursor(0, 0);
     lcd.print("1 - Limiar");
     lcd.setCursor(0, 2);
@@ -314,9 +322,11 @@ void alterarlimiares()
     if (digitalRead(botoes[0]) == HIGH)
      alterarlimiares();
     else if (digitalRead(botoes[1]) == HIGH)
-     menu(); 
+     return; 
   } while (digitalRead(botoes[0]) != HIGH || digitalRead(botoes[1]) != HIGH);
 }
+
+//Função responsável pela leitura dos sensores
 
 int ouvirNivel()
 {
@@ -326,11 +336,11 @@ int ouvirNivel()
   for (int i = 0; i < NUM_SENSORES; i++)
   {
     if (flag_calibracao[i]) {
-      leitura_sensor = read_sensor(sensores[i]);
+      leitura_sensor = read_sensor(sensores[i]);                //Checando o nível de som captado pelo sensor
       //leitura_verificador = read_sensor(verificadores[i]);
       if (DEBUG)
       {
-        imprime_valor(i, leitura_sensor);
+        //imprime_valor(i, leitura_sensor);
         //imprime_verificador(i, leitura_verificador);
       }
       if (leitura_sensor > value)
@@ -340,7 +350,7 @@ int ouvirNivel()
   return value;
 }
 
-int read_sensor(int port)
+int read_sensor(int port)               //Função responsável por captar o nivel sonoro registrado pelos sensores
 {
   unsigned long value = 0;
   for (int x = 0; x < NUM_INTERACOES; x++) //Antes tinha times, uma funcao que passava como argumento. Desnecessario muito mais viavel usar um define N_INTERACOES
@@ -359,26 +369,26 @@ void imprime_valor(int x, int leitura)
   //Serial.print(": ");
   //Serial.println(leitura);
 }
-void luz()
+void luz()                //Função responsável por acender o sinal luminoso
 {
   for (int n = 0 ; n < REP_LUZ; n++)
   {
     if (DEBUG)
       //Serial.println("Disparado Luz");
-      lcd.print("oi");
+      lcd.print(" ");
     else
     {
-      digitalWrite(LUZ, HIGH);
-      delay(TEMPO_LUZ * 1000);limite_POT[botao]
+      digitalWrite(LUZ, HIGH);      //Acendendo a luz por determinado tempo
+      delay(TEMPO_LUZ * 1000);
       digitalWrite(LUZ, LOW);
     }
     if (DEBUG)
      // Serial.println("Desligando Luz");
-     lcd.print("oi");
+     lcd.print(" ");
   }
 }
 
-void som()
+void som()              //Função responsavel por emitir o sinal sonoro de alerta
 {
   for (int n = 0; n < REP_SOM ; n++ )
   {
@@ -387,7 +397,7 @@ void som()
       lcd.print("oi");
     else
     {
-      digitalWrite(SOM, HIGH);
+      digitalWrite(SOM, HIGH);            //Ligando a sirene por determinado tempo
       delay(TEMPO_SOM * 1000);
       digitalWrite(SOM, LOW);
     }
@@ -414,26 +424,27 @@ void imprime_verificador(int y, int leitura)
 
 
 void ajusteSensibilidade() {                     //A função recebe uma porta analogica (de um potenciometro) como parametro, para realizar a calibração do sensor
-  bool ajuste = false;                           //Flag para a calibração. Regulada - True; Desregulada - False;
+  bool ajuste = true;                           //Flag para a calibração. Regulada - True; Desregulada - False;
   int leitura = 0;                                   //Variavel de leitura analogica da porta
   int botao = 0;
   int value = 0;
 
-  String str = "Sensores";
+  String str = "Sensores";                        //Checando se há sensores descalibrados e guardando o numero dos respectivos sensores
   String sensor = "";
   for (int i = 0; i < NUM_SENSORES; i++) {
     leitura = read_sensor(verificadores[i]);
     value = leitura - limite_POT[i];
     if (value > LIMITE || value < -LIMITE) {
       flag_calibracao[i] = false;
-    } else {limite_POT[botao]
+      ajuste = false;
+    } else {
       flag_calibracao[i] = true;
     }
     if (flag_calibracao[i] == false)
       sensor += " " + String(i + 1) + ",";
   }
 
-  if (sensor == "") {
+  if (ajuste == true) {
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print(str + " Calibrados");
@@ -444,13 +455,13 @@ void ajusteSensibilidade() {                     //A função recebe uma porta a
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print(str + sensor);
-    lcd.setCursor(0, 1);limite_POT[botao]
+    lcd.setCursor(0, 1);
     lcd.print("Descalibrados");
     delay(4000);
   }
 
 
-  if (flag_calibracao[0] == false) {
+  if (flag_calibracao[0] == false) {            //Responsável por escolher qual sensor será calibrado
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("Digite o numero");
